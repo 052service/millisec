@@ -1,0 +1,72 @@
+1. Выполнение команд и получение доступа (Remote Execution)
+psexec.py — Выполнение команд от имени SYSTEM через службу SMB (создает временную службу).
+
+smbexec.py — Получение консоли через SMB без создания службы (менее заметен в логах).
+
+wmiexec.py — Выполнение команд через протокол WMI (без загрузки бинарных файлов на диск).
+
+atexec.py — Запуск команд на удаленном сервере через планировщик задач Windows (Task Scheduler).
+
+dxecexec.py — Запуск команд через DCOM.
+
+2. Сбор учетных данных и дампинг хэшей (Credentials Dump)
+
+secretsdump.py — Дамп NTLM-хэшей и Kerberos-ключей из SAM, LSA Secrets и базы данных Active Directory (NTDS.dit).
+
+lsadump.py — Извлечение секретов из LSA (Local Security Authority).
+
+samrdump.py — Извлечение системных пользователей и их RID через протокол SAMR.
+
+mimikatz.py — Удаленный запуск базовых функций Mimikatz по протоколу RPC.
+
+GetADUsers.py домен.local/user:password -dc-ip IP_КОНТРОЛЛЕРА -all = все пользователи 
+
+GetNPUsers.py домен.local/ -usersfile users.txt -format hashcat -outputfile hashes.txt -dc-ip IP_КОНТРОЛЛЕРА
+
+hashcat -m 18200 hashes.txt /usr/share/wordlists/rockyou.txt
+
+bloodhound-python -u 'User' -p 'Password' -d domain.local -dc IP_DC -c All
+
+3. Работа с протоколом Kerberos
+
+GetNPUsers.py — Поиск пользователей с отключенной предварительной проверкой подлинности Kerberos (атака AS-REP Roasting).
+
+GetUserSPNs.py — Запрос SPN-записей и TGS-билетов для сервисных учетных записей (атака Kerberoasting).
+
+	GetUserSPNs.py -request local/user -save -outfile fayl.out -dc-ip IP
+
+getTGT.py — Запрос билета Kerberos TGT по логину/паролю или NTLM-хэшу (Overpass-the-Hash).
+
+getST.py — Запрос билета Kerberos Service Ticket (TGS) с поддержкой механизмов S4U2Self и S4U2Proxy.
+
+ticketer.py — Генерация поддельных билетов Golden Ticket и Silver Ticket.
+
+raiseChild.py — Атака на доверительные отношения между доменов в лесу (Forest Trust/Child Domain).
+
+4. Управление правами и объектами Active Directory (ACL / LDAP)
+
+dacledit.py — Чтение и редактирование списков доступа (DACL/ACE) объектов Active Directory.
+
+owneredit.py — Смена владельца (Owner) объектов в Active Directory.
+
+rbcd.py — Настройка делегирования на основе ресурсов (Resource-Based Constrained Delegation).
+
+findDelegation.py — Поиск аккаунтов с включенным Unconstrained/Constrained/RBCD делегированием.
+
+5. Перехват и ретрансляция атак (Relaying & Spoofing)
+ntlmrelayx.py — Ретрансляция NTLM-аутентификации на SMB, LDAP, HTTP, MSSQL и другие протоколы.
+
+smbrelayx.py — Перехват и ретрансляция SMB-трафика.
+
+krb5relayx.py — Атаки с ретрансляцией Kerberos.
+
+6. Разведка и сбор информации (Enumeration / Recon)
+netview.py — Перечисление хостов, общих папок и сессий в домене.
+
+enum4linux-ng (использует библиотеку impacket) — Полный аудит домена и SMB-ресурсов.
+
+lookupsids.py — Сканирование и перебор пользователей через SID Brute-Forcing.
+
+rdp_check.py — Проверка валидности учетных данных через протокол RDP.
+
+mssqlclient.py — Подключение и выполнение SQL-запросов / команд на сервере MSSQL.
